@@ -1,0 +1,1301 @@
+Oracle Cloud Infrastructure Documentation
+-------------------------------------------------
+https://docs.cloud.oracle.com/en-us/iaas/Content/Identity/Concepts/commonpolicies.htm
+
+Creating a Secure Connection Between Oracle Cloud Infrastructure and Other Cloud Providers
+-------------------------------------------------
+https://blogs.oracle.com/cloud-infrastructure/creating-a-secure-connection-between-oracle-cloud-infrastructure-and-other-cloud-providers
+
+
+
+Getting Started  with OCI : - 
+----------------------------------------------------------------------------------------------------------------
+  OCI Global Footprint : 
+	Nov-19 : 16 Region - 11 Commercial Region & 5 Government Region  
+		 20 Planned -17 Commercial Region & 3 Government Region  
+
+  Inside AD : 
+	Non-oversubscribed network , no noisy neighbors
+	Very high scale - 1 million network port in an AD
+	Predictable low latency and high speed interconnect between host in an AD
+
+  Off Box Network Virtualization : 
+	Virtual Network
+	
+  Differentiation :
+	Technical 						Business
+	  Perforamce						Aggressive and Predictable pricing
+		off box nework virtualization 			SAL Performance Availability and Management
+		Bare Metal + Local NVMe				BYOL & Universal Cloud Credit
+		All SSD Storage					Support through one Org
+		No Network/CPU/Memory over-subscription
+	Battle Tested
+	DB Options - BM VM RAC Exadata
+	Enterprise App Support (EBS JDE)
+
+
+Identity & Access Management : - 
+----------------------------------------------------------------------------------------------------------------
+  IAM :  (Users, Group, Dynamic Group,Policies, Compartment, Federation, Authentication Setting )
+            |
+           MFA , API Keys, Auth Token
+
+	Group of users  > Policy (Permission)   > Resources
+
+	Group of Users
+		What type of access
+		Which specific resources
+        Resource - Oracle Cloud object like Compute , Instance, Block Storage , VCN
+	Each OCI resource has a unique identifier called as Oracle Cloud ID ( OCID )
+	IAM uses tradaitional identity concepts such as Principal , USers , Group , AuthN, AuthZ Compartment
+	User enforce security principles of least privileges (user > group > policy)
+ 	Same user can be member of mulitple group
+	Principal - IAM identity that is allowed to interact with OCI Resources   1) IAM Users (Individual Users or Applictions) 2) Instance Principal
+	First IAM User is default Admin, Default ADmin setup other IAM Usrs and group	
+	Users has no permission until placed in group and that group has atleast one policy with permssion on compartment or tenancy
+	Instance Principal - let instance to make API Call to other OCI services removing need to configure user credentails or a configuration file 
+	
+  Authentication :
+	Username and Password - 
+	API Signing Key - Required when using OCI API in conjunction with SDK/CLI
+			  Key is an RSA key pair in PEM format (2048 bit)
+			  In OCI console you copy paste content of PEM Public file ,Use private key with SDK or own client to sign your API Request
+	Auth Token -      Oracle generated token strng to authenticate third party API that do not support OCI signature-based auth. (ADW)
+			  Auth tokens do not expire
+
+  Authorization : 
+	Policy cannot be attached to Users only to Group
+	Allow group <group name> to <verb> <resource> in tenancy / compartment [where condition]
+	Everthing denied by default
+	Policy attachment
+	Policy inheritence
+
+IAM Policies : 	
+  Policy Syntax : 
+	Policy need to be attach to tenancy or compartment, You cannot leave it like this
+	Allow group <group name> to <verb> <resource> in tenancy / compartment [where condition]
+	Verbs  >  Permission > API Operation
+	Verbs - 
+		Inspect - List resource
+		Read - Inspect + Ability to get user define metadata
+		Use - Read + Update (ability to work with resource)
+		Manage - Include all premission for the resource
+	
+	Resource Type - 
+		Aggregate Resource type 		Individual Resource type
+			all-resource			
+			database-family
+			instance-family
+			cluster-family
+			object-family
+			file-family
+			volumne-famiily
+			virtual-network-family
+			dns 
+			Tag-namespace
+  Common Policies  :
+	Allow group NetworkAdmin to manage virtual-network-family in tenancy 
+
+	Allow group InstanceAdmin to manage instance-family in compartment ABC
+	Allow group InstanceAdmin to read app-catalog-listing in tenancy
+	Allow group InstanceAdmin to use volumne-family in compartment ABC
+	Allow group InstanceAdmin to use virtual-network-family in compartment XYZ
+
+  Advance Policy Syntax  :
+	Allow group <group name> to <verb> <resource> in tenancy / compartment where condition
+	You use variables when adding condition to a policy 
+		Request - relevant to request itself
+		Target -  relevant to resource being acted upon in the request 	
+		request.operation ||  target.group.name	
+	Allow group phooenix_admin to manage all-resources in tenancy where request.region='phx'
+	
+  IAM-Compartments  : 
+	Each resource belong to single compartment, But resource can be connected and shared across compartment (VCN and subnet can live in different comp.)
+	Compartment can be delete or renamed
+	Most resource can be moved to different compartment
+	When you create a policy you need to specify which compartment to attach
+	Sub compartment inheart access permission from higher compartment up its hierarchy
+	Ater create compartment you need to write at least one policy for it.
+ 	Compartment can have sub compartments that can be upto six levels deep
+
+  Root Compartment  : 
+	Root Compartment > Default Administrator > Group Administrators > allow group Administrators to manage all-resources in tenancy  
+		Group Admin cannot be deleted and should have atleast one user in it.
+
+  Compartment Quotas  : 
+	Compartment Quotas are similar to Service limits. Biggest difference is that service limit are set by Oracle and Compartment Quotas are 
+	set by Administrator using policies
+		Three type of quotas policies
+			Set - Set maximum number of a cloud resource that can be used in compartment
+			Unset - Reset quotas to default service limits
+			Zero - removes access to cloud resource for a compartment
+	zero compute quotas /*bm*/ in tenancy
+	set  compute quotas /*bm*/ to 5 in tenancy where request.region =us-phoenix-1
+	 
+  Governence > Compartment Explorer 
+
+  Policy Inheritence  : 
+	Compartment inherits any policies from their parent compartment
+	Three level of compartment A B C
+	Policies that apply to resources in Compartment A also apply to resources in Compartment B & C
+	Allow group NetworkADmin to manage virtual-network-family in compartment A > allows NetworkADmin to manage VCN in comparment A B & C
+ 
+ Policy Attachment  :
+	Concept of attachment when you create a policy you much attach it to a compartment, Where you attach it controls who can then modify it or delete it
+	You want to create a policy to allow NetworkAdmin to manage VCN in Compartment C Attach to
+		C or B - Allow group NetworkADmin to manage virtual-network-family in compartment C
+		A - Allow group NetworkADmin to manage virtual-network-family in compartment B:C
+		Tenacy - Allow group NetworkADmin to manage virtual-network-family in compartment A:B:C
+ 	
+  Moving a Compartment to a Different Parent Compartment  : 
+	You can move compartment to a different parent compartment with same tenancy
+	When you move a compartment all its contents are moved with it.
+	Restriction - Two compartment within same parent cannot have same name
+		
+  Policy implication when moving compartments  : 
+	
+  IAM Tags  :  (Goverence > Tag Namespace)
+	Free form Tags - Consist of Key and Value 
+		Eg. Environment = Production
+		    Project = Alpha
+	Define Tags - More feature and Controls
+		Are contained in Tag Namespace
+		Define schema, secured with policy
+		Eg.Namespace = Operation
+		   Tag Key = Environment
+		   Value type = String
+	Tag Namespace is a container for set of tag keys and tag key definition
+	Tag key defination specifies it key env and what type of vlaues are allowed
+	Eg : 
+		Namespace defination = Opertion
+			key defination = Environment
+
+				Tag : 
+		 Opertion.Environment="Production"
+		Namespace	Key      Value		
+	Tag key defination and Tag namespace cannot be deleted but retired
+	You can reactivate tag namespace tag key definiation
+	Tag namespace and Tag key defination must be setup in your tenance before users can apply 
+	You can use varibles to set value of a tag or list of tag key value.
+		Operation.CostCenter = ${iam.pricipal.name} a ${oci.datetime}
+
+  Defined Tags work with Policies  : 
+	Allow group InstanceLauncher to manage instance-family in compartment A
+	Allow group InstanceLauncher to use volumn-family in compartment A
+	Allow group InstanceLauncher to use  virtual-network-family in compartment A
+	
+	Allow group InstanceLauncher to use tag-namespace in compartment A where target.tag-namespace.name='Operation'
+		Namespace example
+				Operation.CostCenter
+					   Region
+					   Project
+
+
+Virtual Cloud Network (VCN) : - 
+----------------------------------------------------------------------------------------------------------------
+	CIDR
+	VCN
+	IP Address
+	Gateway & Routing 
+	Peering 
+	Transit Routing 
+	Security
+	Putting it all togther
+
+  CIDR Basic :
+	<Network><Host>
+	<Network><Subnet><Host>
+	192.168.1.0/24 (turn network bit to 1)>  192.168.1.0 - 192.168.1.255
+	128,64,32,16,8,4,2,1  > 2^7,2^6,2^5,2^4,2^3,2^2,2^1,2^0
+	192 is represented as    1   1	 0   0   0   0   0   0
+	168 is represented as    1   0	 1   0   1   0   0   0
+	1   is represented as    0   0	 0   0   0   0   0   1
+	0   is represented as    0   0	 0   0   0   0   0   0
+	 	
+	192.168.1.0	1   1	 0   0   0   0   0   0	1   1	 0   0   0   0   0   0	1   1	 0   0   0   0   0   0	1   1	 0   0   0   0   0   0
+	24	        1   1	 1   1   1   1   1   1	1   1    1   1	 1   1   1   1  1   1	 1   1	 1   1	 1   1  1   1    0   0   0   0   0   0
+	Logical AND     1   1
+
+  Introducion VCN : 
+ 	A private network that you setup in OCI with firewall and specific gateway
+  	A VCN covers a single contiguous IPv4 CIDR block of your choice 
+ 	A VCN reside in within a single region.
+  	Avoid IP range that overlap with other on-prim or other cloud network
+  	Use private IP address range specified in RFC 1928 - 10.0.0.0/8  172.16/12 192.168/16 
+  	Allowable OCI VNC size range is from /16 to /30
+	192.168.1.0 First IP is network IP and cannot be used 192.168.1.255 Last IP is broadcast IP and cannot be used
+ 	VNC reserves the first two IP address and the last one in each subnet CIDR
+ 	Each VNC network subdivided in to subnets
+	Each subnet can be AD specific or Regional (recommanded)
+	AD specific is contained within a single AD in a multi AD region
+	Regional subnet spans all three AD in an multi AD region
+ 	Subnet can be designated as either
+		Private - private ip address assign to VNIC
+		Public - contain both public and priavte assigned to VNIC
+
+ 	Default VCN has - 3 Subnet , 1 IG , Route Table , 1 Security List ,1 DHCP Option 
+	192.168.1.0/24 
+	192.168.1.0 - 192.168.1.255 
+	192.168.1.0/27 - Public 
+	192.168.1.32/27 - Private 
+	
+	10.0.0.0/16  >  10.0.1.0/24 10.0.2.0/24  10.0.3.0/24
+	Class A /8
+	Class B /16
+	Class C /24
+
+  IP Address :
+	Each instance in a subnet has at least one primary private IP addr
+  	Instane >= 2 VNICs addtional VNICs called secondary VNICs
+  	Each VNICs has one primary private IP  can have additonal private IPs called Secondary Private IP upto 31 Secondary Private IPs
+  	You can have 31 additional priavte IPs
+  	A Private IP can have optional Public IP assigned to it.
+  	Public IP is IPv4 address which is reachable from internet
+	Possible to assign a given resource multiple public ip across one or more VNICs
+  	Public IP Address Type -
+		Ephemeral - Temporary and existing for the lifetime of the instance 
+		Reserved - Persistence and exist beyond the lifetime of instance can be reassigned to new instance
+  	 Ephemeral IP can be assigned to Primary Private IP only (Hence only 1 per VNIC vs max 32 for reserved IP) 
+ 	 No charge for using Public IP 
+ 	 Oracle Provide cannot choose / edit but can view
+		OCI Public Load Balancer , Nat Gateway , DRG-IPSec Tunnels , OKE Master/Worker
+  	 Oracle Provide cannot choose / edit  / view
+		Internet Gateway , Autonomous Database
+
+  Routing & Gateways : 
+	Each subnet uses a single route table specified at time of subnet creation but can be edit later
+	Contains rules abt how IP packets can tarvel to different IP address out of the VCN.
+	Consist of Route Rules ; Each rules specifies 
+		Destination CIDR block 
+		Route Target (the next hop) for the traffic that matches that CIDR
+	Route table is used only if the destination IP addr is not within VCN CIDR block
+	No route table to enable taffice within VCN
+	When you add an Internet Gateway, NAT Gateway, DRG, Service gateway, Peering Gateway connection you must update route table for 
+	any subnet that uses gateway or conections
+
+      Internet Gateway - 
+	IG provide path for network traffic between your VCN and internet
+	You can have only one 1 IG for a VCN
+	After you add IG you need to add rule to Route Table which says packet to 0.0.0.0/0 (Any IP) need to go to internet gateway
+
+      NAT Gateway -
+	NAT gateway gives entire private network access to internet without assiging each host a public IP
+	You can have more than one 1 NAT Gateway on a VCN. though a given subnet can route traffic to only a single NAT Gateway
+  
+     Service Gateway - 
+	Service Gateway lets resouce in VCN access public OCI Service such as Object Storage but without using an Internet Gateway of NAT Gateway
+ 	Service CIDR Labels represent all the public CIDRs for a given ORacle Servic or a group of ORacle Service Eg.
+		OCI <region> Object Storage
+		All <region> Services
+
+     Dynamic Routing Gateway -
+	A virtual router that provide path for private traffic between VCN and distination other than internet
+	On-prim network via IPSec VPN (Site to Site VPN) , FastConnect
+	DRG is a standalone object. VCN and DRG have 1:1 relationship		 		
+
+  Stateful vs Stateless : Stateful means if the traffic is comming to Port 80 in it remember the state tarffic will always be allowed out from Port 80 
+
+  Peering  : 
+    VCN Peering is process of connecting multiple VCN
+    Local Peering (Within Region) -
+	Local VCN Peering is the process of connecting two VCN in the same regions
+	
+	Local PeeringGateway is a component on a VCN for routing traffic to a locally peered VCN
+	Once  Local PeeringGateway is created in both VCN you need to establish connectivity between Local PeeringGateway 
+	Two VCN in the peering relationship shouldnt have overlapping CIDR
+ 	Peering is non Transtive
+
+    Remote Peering (Across Region) -
+	Remote VCN Peering is process of connecting two VCN in different Region
+	Requires remote peering connection (RPC) to be created on the DRG. RPC job is to act as a connction point for a remotely peered VCN	
+	Two VCN in the peering relationship shouldnt have overlapping CIDR
+ 	Peering is non Transtive
+
+  Security VCN  : 
+    Security List -
+	A common set of firewall rules associated with a subnet and applied to all instance launched inside the subnet
+	SL consist of rules that specify the type of traffic allowed in and out of subnet
+	Associate subnet with SL during creation or later
+	You can choose whether a given rule is stateful or stateless 	 
+	Security list apply to instance whether its talking to with another instance in the VCN or a host outside of VCN         	
+
+    Network Security Group (NSG) -
+	NSG consists of set of rules that apply only to a set of VNICs of your choice in a single VCN
+	Currently compute, load balancer & db instance support NSG
+	When writing rules for an NSG you can specify NSG as the source or destination
+	Oracle recommand to use NSG instead of SL
+	You need to attach NSG Manully to VNICs
+
+    SL + NSG -
+	You can use SL alone , NSG use alone, Both Together	
+	If you choose to use both SL + NSG the set of rules that applies to a given VNIC is the union of these items.
+	A Packet is allowed if any rule in any of the relevant list and groups allow the traffic
+	
+    Stateful Security Rule -
+	Default SL rules are stateful	
+	Connection tracking when instance receive traffic matching stateful ingress rule the response is tracked
+	and egress is allowed automatically without any egress rule
+
+    Stateless Security Rule -
+	With stateless rules response traffic is not automatically allow
+	To allow the response traffic for a stateless ingress rule you must create a corresponding stateless egress rule
+	If you add stateless rules in SL that means you do not want to use Connection Tracking for any traffic that match rules
+	Stateless rules are better for scenarious with large numbers of connections (Load balancer Big Data)
+
+ Default VCN & DNS :
+    Default VCN Components -
+	You VNC automatically comes with some default components
+		Default Route Table 
+		Default Security List
+		Default set of DHCP options
+	You cannot delete this default components but you can change their components
+
+    Internal DNS -
+	VCN Private DNS enables to use hostname instead of IP address to talk to each other
+	Options -
+		Internet and VCN Resolver - Default choice for new VCN
+		Custom Resolver -  let instances resolve the hostname of host in your on-prim network through IPSec VPN/ Fast Connect
+	Optionally specify a DNS Label when creating VCN/Subnet/instance
+		VCN : <VCN DNS Label>.oraclevcn.com
+		Subnet : <subnet DNS Lable>.<VCN DNS Label>.oraclevcn.com
+		Instance FQDN : <hostname>.<subnet DNS Lable>.<VCN DNS Label>.oraclevcn.com
+	Instance FQDN resolve to Instane private IP Address
+	No automatic creation of FQDN for Public IP address (Eg. cannot ssh using <hostname>.<subnet DNS Lable>.<VCN DNS Label>.oraclevcn.com)
+   
+  Putting it all Together :
+	Subnet can have one route table and multiple (5*) SL assoicated with it.
+	Route table defines what can be routed out of VCN
+	Private subnet are recommanded to have Individual Route Table
+	Instance connont communicate with other instance in same subnet until you permit them to 
+
+
+Connectivity VPN & FastConnect : - 
+----------------------------------------------------------------------------------------------------------------
+    
+  Connectivity to On-Prim Networks :
+    Connectivity Options -
+	Public Internet -
+		Internet Gateway / NAT Gateway
+		Reserved/ Ephemeral IPs
+		Internet Data out Pricing (First 10TB Free)           
+	VPN Connect (Site to Site)- 
+		IPSec Authentication and Encryption
+		Two main option
+			OCI managed VPN Service (Free)
+			Software VPN (Running on OCI Compute)
+	Fast Connect -
+		Private Connection
+		Seperate from Internet
+		Port Speed in 1Gbps and 10Gbps increment
+		SLA
+    
+    VPN Basic -
+	VPN-Using a public network to make end to end connection between two private network in a secure fashion using a standard protocol like IPSec
+	Tunnel -
+	Authentication -
+	Encryption -
+	Static Routing -Configure a Router to send traffic for a particular destination in preconfigured direction
+	Dynamic Routing - Use a routing protocol such as BGP to figure out what path traffic should take	
+	IPSec has two mode
+		Transport mode - 
+		Tunnel Mode - OCI support only Tunnel Mode not Transport mode
+
+    Dynamic Routing Gateway - 
+	A Virtual Router that provide path private traffic between your VPC destination other than internet
+	You can use it to established a connection with your on-prim network via IPSec VPN or FastConnect
+	DRG is standalone object and must be attached to VCN 
+	DRG and VNC has 1:1 relationship
+   
+    VPN Connect IPSec - 
+	VPN Connect is managed VPN Service which securely connect on-prim network to OCI VCN through an IPSec VPN conection
+   	VPN connect is free 	
+	OCI Provision redundant VPN tunnels located on physically and logically isolated tunnel endpoints
+   
+    VPN Connect (IPSEC ) - Workflow - 
+	CPE Object - (Customer Premises Equipment) virutal representation of on prim network which terminate IPSec Tunnel it could be router firewall Virtual Appliance
+	Static Route / Dynamic Route
+	DRG (Dynamic Routing Gateway) & Route Table 
+
+	Create a VCN
+	Create DRG
+	Attach DRG to VCN
+	Updated VCN Route Table to route traffic to DRG
+	Create CPE object and add on-prim router public ip addr
+	From DRG, Create IPSec connection between CPE and DRG and provide static route or use dynamic route (BGP)
+	Configure onprim CPE Router
+
+
+  VPN Connect Demo :
+	Create VCN with one subnet 
+	Open Certain Ports in VCN in Security List
+		Ingress  Source 0.0.0.0/0   TCP - 4500
+		Ingress  Source 0.0.0.0/0   TCP - 500
+		Ingress  Source 0.0.0.0/0   UDP - 4500
+		Ingress  Source 0.0.0.0/0   UDP - 500
+	Create Dynamic Routing Gateway
+	Create CPE - Virtual Representation of your actual on-premise equipment network device running on your on-prim evn. 
+		CPE Required Public IP of on prim 
+	Attach DRG to VCN
+	Updated Route table
+	Create IPSec connection (Tunnel generate public ip) - Require DRG | CPE | CIDR  of onprim | Static Routing (You can choose Dynamic as well)
+	On On-Prim Side (LibreSwan VM) - 		
+		cat ipsec.conf > Update IPSec tunnel public ip , CIDR in ipsec.conf 
+		cat ipsec.secrets > Update IPSec tunnel public ip | CPE Public IP | Shared Secret
+	Command : ipsec verify
+	Command : sudo service ipsec restart
+	Command : sudo ipsec auto --status |grep "=="
+
+  Fast Connect :
+	Connect to OCI directly or via pre-integrated Network Partners
+	Use BGP (Border Gateway Protocol)
+	No Charges for inbound or outbond data tranfer
+	Extend remote datacenter into oracle VCN (Private peering) or connect to Public resources (Public Peering )
+	Connection to Oracle Co-location in Data Center (BGP)
+	Connection with Oracle Through Oracle Provider (Megaport AT&T Layer 2 or 3  connectvitiy depends upon provider)
+     
+     Virtual Circut - 
+	Isolated network path that runs over one or more physical network connection to provide a single,logical connection between 
+	customer edges router and their DRG
+	Fastconnect use BGP to exchange routing information and work on Layer 2 ot Layer 3 connectvitiy
+     
+     FastConnect Use Scenarios -
+	Private Peering -
+		Extension of the on prim network to the OCI VCN
+		Communication across conection with PRivate IP address and use DRG
+	Public Peering -
+		To access public OCI service such as Object Storage, OCI Console or API over dedicated FastConnection Connection 
+		Doesnt use DRG 
+
+  FastConnect Demo : Provider Name , Customer BGP IP Address (CIDR) ,  Oracle BGP IP Address , Customer BGP ASN (Autonomous System Number)
+			Copy OCID and provide to Vendor (MegaPort) to provivsion Virtual Circut from their end 
+
+
+
+
+
+Load Balancer : - 
+----------------------------------------------------------------------------------------------------------------
+  Load Balancer Intro :
+	Load balancer sit between client and backend perform tasks such as
+		Service Discovery - Which backends are available
+		Health Check - Which backend are health and availble to accept connection
+		Algorithm - Which algorith should be used to balance requests 
+	Benefits
+		Fault Tolerance and HA -
+		Scale -
+		Name Abstraction - Name resolution can be delegated to LB, Backend dont need to have public IP 
+
+     OCI LB Service - 
+	Load Balancer as a service provide Scale and HA
+	Public and Private LB Option
+	Supported Protocols - TCP, HTTP V1.0, HTTP V1.1 ,HTTP V2, WebSocket
+	Support SSL Termination, End-To-End SSL, SSL Tunneling 
+	Support advance feature such as session persistence, content based routing 
+	Single LB for TCP (Layer 4) and HTTP (Layer 7) traffic
+	Provisioned Bandwidth - 100Mbps 400Mbps 8Gbps
+	No need to prewarm your load balancer	
+
+     Public LB - 
+	Recommandation : For Public LB use Regional Subnet
+	Accept traffic from internet using public IP that serve as the entry point for incoming traffic
+	Public LB is regional service
+	If region has multi AD then Public LB require regional subnet or 2 AD specific subnet each in seperate AD
+	LB Service create Primary LB and Secondary LB in each different AD
+	Support AD failover
+	Floating Public IP is attached to the Primary LB, In case of disaster  Floating Public IP get attached to Standby LB 
+	Service treat two load balancer as equivalent and you cannot denote one as Primary
+	
+	Listener - Entity that check for incoming traffic on the LB IP address
+	Backend Server - Application Server responsible for generating content in reply to the incoming TCP or HTTP traffic
+	Load Balancing Policy - How to distribute incoming traffic to the backend Servers 
+		Round Robin - Default 
+		Hash IP - Ensure request from Particular client are always directed to same backend Serer 
+		Least Connection -
+	Backend Set - Logical entity defined by a list of Backend Servers LB Policy and a Health Check Policy
+	Health Check Policy - Confirm availability of backend Servers support
+		TCP Level Health Check
+		Http Level Health Check 
+
+     Load Balancing Policy - 
+	Round Robin - default Policy
+	IP Hash - Redirect connection to same backend Server
+	Least Connection - Route incoming non-sticky request traffic to fewest connection backend server 
+	LB policy decision apply differently to TCP Load Balancer, Cookies based Session Persistence HTTP request (Sticky Requests)
+	and Non-Sticky HTTP request
+		A TCP LB consider policy and weight criteria
+		AM HTTP LB cookies based session persistence forwards rqeuest using cookies sesion info
+		For non sticky http request LB apply polices and weight criteria
+
+     Health Check - 
+	Health check is test to confirm availability of Backend Servers, Health Check is activated for 	
+		Backend Server
+		Backend Set
+		Overall LB
+	LB IP can have upto 16 Listeners (Port 80,443) , And Each listener has backend set that can have upto 1 to N backend Servers
+	Health API provide a 4-state health status - OK, Warning Critical Unknow
+	Health Status is updated every 3 min	 
+	Backup Server Drain State - LB Stop sending new connection good scenario for maintenance 
+	Backup Server Offline State - On ingress traffic
+	Backup Server Backup State -  LB send traffic to backup server only when all other backend server fail health check
+
+
+
+  Public - Load Balancer Demo :
+
+  Private Load Balancer :
+	Assigned Private IP addr from the subnet hosting the load balancer
+	Load Balancer can be regional or AD-Specific depending upon scope of host subnet
+	Load Balancer is accessible only from the VCN that contain assocated subnet
+	Private LB with AD specific, Standby LB get created in same AD as of Primary LB
+
+
+Compute : -  
+----------------------------------------------------------------------------------------------------------------
+  Compute Intro :
+	BM - Performance Intensive, Workload not virtualized, Need speific Hypervisor, BYOL
+	Dediated Virtual Host
+	Virtual Machine 
+	AMD EPYC BM Server are 66% cheaper than other option (E)
+
+  Image : Oracle Provided Images , Custom Image  , BYOI
+     Oracle Provided Images - 
+	Provide a startup script using cloud-init	
+	User opc created automatically for Linux instance & Ubuntu for Ubuntu
+	Window Update Utility to get latest window updates
+
+     Custom Image (Golden Image)- 
+	Create custom image of an instance boot disk and use it to launch other instance
+	Instance you launch from custom image include customization configuration and software installed
+	During the process instance shut down and remain unavailable, instance restart when process complete
+	Custom image do not include the data from any attached block volume
+	Custom image cannot exceed 300GB
+	Windows custom images cannot be exported or downloaded out of tenancy
+
+     Image Export/Import - 
+	Image export import  enable you to share custom image across tenancies and region 
+	Image export import uses OCI Object Storage
+	Support (Mode you can use when you spun up your instance) - Mode of Import Export
+		Emulation Mode - VM IO device CPU & Memory are implemented as software, Emulated VM support almost any X86 OS. These VM are slow
+		Para Virtualized - VM include a driver specially designed to enable virtualization
+		Native Mode (SR-IOV Single Route IO Virtualzation)- same as Hardware Virtualized Machine (HVM) offers maximum performance with modern OS
+
+     Bring you own image (BYOI)- 
+	on prim  > qcow2 image > object Storage > Custom Image <> Instance
+
+
+  Boot Volume :
+	OS Image is store in remote boot volume
+	Boot Vol is created automatically and associated with instance until you terminate the instance
+	Compute instance can be scaled to a large shape by using boot volumes 
+	You can preserve boot volume when you terminate the instance
+	Boot volume are only terminated when you manually delete them
+	Boot Volume cannot be deattached from running instance
+	Possible to take a manual backup, assign backup policy or create clone of boot volume
+	
+     Custom Boot Volume Size - 
+	Linux Boot Volume Size - default 46.6 GB  Custom : 100 GB
+	Window Boot Volume Size - default 256 GB  Custom : 500 GB (32 TB)
+
+      Custom Image / Boot Volume Backup (Boot Volume Clone)- 
+		Custom Image -
+			Export custom image across tenancy or region		Downtime is required
+			No cost associated to store Custom Image		Limit of 25 custom image per Compartment
+		Boot Volume Backup -
+			It doesnt require downtime 				Cost associated with amount of object store used to store backup
+			Preserve the entire state of your running OS as backup  Create a boot volume backup while instance is running create a crash consistence backup           
+
+
+  AutoScaling :
+	Running Instance You can create out of that  Config (OS Image, metadata, shape, VNICs, Storage, Subnet)
+	Config file use to create  multiple Instance ( 1. Different AD , 2. Manage All together(Stop Start Terminate) , 3. Attach to LB) 
+	
+     Instance Configuration - 
+		Clone an instance and save to a configuration file
+		Create standardized baseline instance template
+		Easily deploy many instance with CLI from a single config file, 
+     Instance Pool - 
+		Centrally manage a group of instance workloads that are all configured with a consistence configuration
+		Update a large number of instance with a single instance configuration change
+		Maintain instance and distribute instance across AD in single region
+		Scale out instance on demand by increasing instance size in instance pool
+     AutoScaling Configuration -
+		AutoScaling  enable you to automatically adjust the number of compute instance in an instance pool based on performance metric CPU & Memory
+		Minimum Size, Inital Size,  Maximum Size, Scaling Policy
+		When instance pool scale in instance are terminated in this order.
+			Number of instance are balanced across AD
+			Number of instance are balanced across FD
+			Finally within the FD
+			oldest instance is terminated
+			
+	Cooldown Period : Period between two autoscalind period
+
+  Instance Metadata & Life Cycle :
+     Instance Metadata - 
+	Instance Metadata includes its OCID, name , compartment, shape, region, AD, Creation date, state, image, 
+	and any custom metadata as an SSH Public Key
+	Service run on every instance and HTTP endpoint listening on 169.254.169.254
+	Get instance information by logging into instance and using metadata service
+	Add and update custom metadata for an instance using CLI & SDK 
+		curl http://169.254.169.254 /opc/v1/instance
+		curl http://169.254.169.254 /opc/v1/instance/metadata/
+		curl http://169.254.169.254 /opc/v1/instance/metadata/<key name>
+
+     Instance Life Cycle - 
+	Resource Billing 
+		Standard shape billing pause in stop state
+		For other like HPC,GPU,Dense IO continue even stop
+	Terminate - 
+		Public and Private IP released
+		You can preserve boot volume and attach to differnt instance as an data volume or use it to launch a new instance 
+		
+
+
+Block Volume : - 
+----------------------------------------------------------------------------------------------------------------
+	Local NVMe
+	Block Volum
+	File Storage
+	Object Storage
+
+  Local NVMe :
+	Some instance shapes in OCI include locally attached NVMe device
+	Locally attached NVMe SSD are not protected and OCI provides no RAID, no Snapshot, no Backup capabilities for these devices
+	Customers are responsible for durability of data on Local SSDs
+
+     Protect NVMe SSD Device - 
+	RAID 1 - Mirroring - But no parity
+	RAID 10 - RAID 1 + RAID 0 - Stripes data across multiple mirrored pairs
+	RAID 6 - Block level stripping with two parity blocks distributed accross all member disk
+	SLA - for NVMe performance
+
+  Block Volume Intro :
+	Store data on block volume independently and Storage servive beyond life span of instance
+	You can create attach connect and move volumes as needed to meet your storage and app requirements
+	Data is managed as a set of numbered fixed block size (512 ) using protocol such as iSCSI
+	Typical Scenarios	
+		Persistence and durable storage
+		expand an instance storage
+		instane scaling 
+	
+	Basic - 		iops/gb 2     iops/volume 3k	throughputGB 240 (No VPU : Volume performance unit)
+	Balanced		iops/gb 60    iops/volume 25k	throughputGB 480
+	High performance	iops/gb 75    iops/volume 35k	throughputGB 600
+
+
+     Creating and Attaching Vol.-
+	Attach your block volume - 1. Paravirtulaized	2. ISCSI
+	By default all Block Volume is read/write
+
+     Deatching & Deleting Block Vol. -
+	When instance no longer require block volume, You can disconnect and then attach it from the instance without loss of data.	
+	When you attach same vol. to another instance or to the same instance DO NOT FORMAT
+	when volume itself no longer needed you can delete block volume, And you cannot undo delete operation
+     
+     Block Volume offline resize -
+	Expand an existing volume in place with offline resizing (cannot resize an attached vol.)
+	Restore from a volume backup to a larger vol.
+	Clone a existing volume to new larger vol.
+	You can only increase size of the volume , You cannot decrease size of vol.	
+
+
+  Block Volume Demo :
+	Consistence device path - If you are rebooting your instance and you want your block volume to mount automatically its good idea to use Consistence device path
+	Attachment Type 
+		ISCSI - Need to run commands to attach volume
+		ParaVirtualized - It automatically take care of attaching the volume as if its run locally (drawback : Little bit performance down)
+	Block Volumn performance tier can be changed dynamically (Basic > Balanced > High Performance)
+		1. Create Block volume from console
+		2. Run iscsi discovery and attach command after logging into Server
+		3. Create partition sudo fdisk -l /dev/oracleoci/oraclevdb		
+		4. Create file system sudo mkfs -t ext4 /dev/oracleoci/oraclevdb		
+
+
+  Backup and Restoration :
+	Complete point-in-time snapshot copy of your block volume
+	Encrypted and stored in Object Storage service and can be restored as new volumes to any AD within the same region
+	Can copy block volume backup from one region to another 
+	Backup is performed in backend async. Your application can continue to access your data
+	Two Kind of Backups
+		On-Demand One-Off-Volume Backup >  full & Incremental
+		Policy based backup - 
+			Bronze - Monthly(11 months) Yearly (5 Year)
+			Silver - Weekly(4 Weeks) Monthly(11 months) Yearly (5 Year)
+			Gold - Daily(A Week) Weekly(4 Weeks) Monthly(11 months) Yearly (5 Year)
+	Customized backup policy not supported
+
+  Clone & Volume Group : 
+     Clone -
+	Clone allows copying an entire existing block volume to a new volume without needing to go through a backup and restore process
+	Clone is point in time direct disk - to - disk deep copy of an entire volume
+	Clone operation is immediate but actual copying data is in background 15 mins for 1TB
+	A clone can only be created in same AD with no need of detaching the source volume before cloning it.
+	Clone cannot be copied to another region
+	A clone can be attached and used as a regular volume when it lifescycle state changes from "PROVISIONING" to "AVAILABLE"
+	Clone and Backup are mutually exclusive
+	Number of clones created simultaneously
+		Volume is attached - one clone at a time
+		Volume is deattached - 10 clone at a time
+			
+     Volume Group - 
+	Group together block and boot volume from multiple compartment across multiple compute instance in a volume group
+	You can use volume group to create volume group backup and clone that are point in time and crash consistence
+	Manually trigger a full or incremental backup of all volume in a volume group leverging a co-ordinated snapshot across region
+	Volume group features available free of charge 	
+
+
+  Boot Volume: 
+	A compute instance is launched using OS image stored on a remote boot volume
+	Boot volume is created and assoicated with instane until you terminate instance
+	Launch another intance with a boot volume -
+		First create custom image of boot volume and then using custom image launch instane
+		alternately you can launch new instance directly from unattached boot volume if you dont with to create custom image 
+	Delete boot volume -
+		You can delete an unattached boot volume
+		you can opionally choose to automatically delete boot volume during time of termination of instance
+		OCI does not allow you to delete the boot volume currently attach to instance
+	Possible to take manual backup, assigned backup policy or create clone of boot volume 
+	You can attach boot volume to instance as block storage in order to debug issue.
+	
+     Custom Boot Volume
+	You have option to specifying a custom boot volume size
+	In order to take advantage of larger size you need to first extend root or system partition 
+		Linux - 46.6 GB
+		Window - 256 GB
+
+
+File Storage : - 
+----------------------------------------------------------------------------------------------------------------
+  File Storage Intro: 
+	Use Case
+		EBS, HPC, General purpose file system, Big Data & Analytics, MicroService Container
+
+     File Storage Service Feature - 
+	AD-local service available in all OCI Region and AD
+	Support NFS v.3
+	Network Lock Management (NLM) for file locking 
+	Full POSIX semantics
+	Data protection : Snapshot capabilities 10,000 snapshot per file sytsem
+	Security 128 bit, Data at rest encryption for all file system and metadata
+	Console,API,CLI,Terraform, and Data path commands
+	Create 100 file system and 2 mount target per AD per Account		
+	
+     Mount Target - 
+	NFS endpoint that lives in your subnet of choice ; AD-Specfic
+	Mount target has an IP addr and DNS name that you use in your mount command
+	Require 3 private IP addr in subnet (dont use /30 for smaller subnet for FSS)	
+	Two IP is used during mount target creation ; 3rd IP used for HA 
+	Placing NFS client an dMount Target in same subnet can result in IP conflicts as users not shown which private ip are used for mount target
+	Place FSS mount target in its own subnet where it can consume ip as it needed
+	
+     File System - 
+	Primary source of storing files in FSS
+	To access file system you create a new or use existing mount target
+	100 file system per mount target
+	AD-Specific
+	Acccessible from OCI VM/BM
+	Accessible from on prem though VPN/FastConnect
+
+     Export Path - 
+	Export path make file system available through mount target. 
+	It is unique path specified when the file system associated with mount target
+	No two file system associate with same mount target can have overlapping export parth	
+	Eg /example & /example/path not allowed 
+	Export path along with mount target ip address is used to mount the file system to an instance
+		#sudo mount 10.0.0.6//example1/path /mnt/mountA
+
+     Mounting an OCI File System- 
+	Launch OCI instance from Console
+	Use NFS V3 protocol to mount the FSS volume
+	install nfs-util (Linux) nfs-common(Ubuntu)
+	Create a directory
+	on FFS console click on Mount Targets
+	Use private ip address information to mount volume using nfs command
+
+
+  File Storage Demo :  
+	
+
+	Create File System (File System create Mount Targets )
+	So Create first Mount Target
+	File system and Mount Target are AD Specific
+	We identitfy mount target with IP addr
+	That IP Address along with Export Path is the way we expose file system
+	Configure security list on mount target to allow traffic (because IP is on mount target)
+	We need to open statefull ingress TCP Port - 111 2048-2050
+					  UDP Port - 111 2048
+					
+			          egress TCP Port - 111 2048-2050
+					  UDP Port -111   (This port configured to TCP Connection to  servive reboot)
+					
+	File System > Export Path (to get NFS Commands from console
+
+
+  File Storage Security :  
+     Security - 
+	Four distinct and seperate layer of security
+		IAM Service - Create an instance (NFS Clinet) and FSS VCN	
+ 		Security List - Connection NFS Client to Mount Target 
+		Export Option - Applying access control list per file system based on source ip cidr block that birdge the SL  and NFS V3 unix security layer 
+		NFS V3. Unix Security  -
+	
+     NFS Export Option-
+	Security list is all or nothing option - the client either can or cannot access mount target 
+	In multi tenant env using NFS Export option you can limit client ability to conect to file system and view or write data
+	When you create file system and associated mount target the NFS export option for that file system set to allow full access to all NFS client
+		Source - 0.0.0.0/0 
+		Require Privilege Source Port - False	
+		Access - Read_Write
+		Identity Squash - None
+		
+  File Storage Service Snapshot : 	 
+	Snapshot provides a read only, space efficient, point in time backup of file system
+	Snapshot is created under root folder of file system in a hidden directory named .snapshot	
+	You can take upto 10K snaphsot
+	
+	
+
+Object Storage : - 
+----------------------------------------------------------------------------------------------------------------
+  Object Storage Intro: 
+	Ideal for storing unlimited amount of unstructured data (image, media, fies, log, backups)
+	Manage data as object using API built on standard HTTP Verb
+	Regional Service  not tied to any specific compute instance
+	Offer two distinct storage class - Hot Storage (Standard - Performant , Frequently Access)  Cold Storage (Archive - Less Frequently Access)
+	Support private acces from OCI resource in VNC through Service Gateway
+	Support Advance feature such as 
+		Cross Region Copy
+		Pre-Authenticated Request
+		Lifecycle rules
+		Multipath upload
+	
+     Object Storage Use Case - 
+	Content Repository - 	
+	Archive / Backup - 	
+	Log Data - Application log file for anaylysis and debug/Troubleshoot
+	Large Data Set - Pharmaceutical Trail Data, Genome Data, IOT  
+	Big DAta/ Hadoop support
+	Use as a primary data repository for big data enable 50% performance improvement
+	HDFS connector provide connectivity provide connectivity to varous big data analytics engine like Apache Spark and MapReduce
+
+     Object Storage Service Features - 
+	Strong consistency - Retrive Data is always latest/recent
+	Durability - Data stored in multiple AD, Corrupt data is auto detected and auto repaired
+	Performance-
+	Custom Metadata - Define your own extensive metadata as key-value pair 
+	Encryption - 256-AES
+	
+     Object Storage Resource - 
+	Object - 
+		All data, Regardless of content type, is managed as object (Logs, Vedios)
+		Each object is composed of object itself and metadata of the object
+	Bucket - 
+		Logical container for storing objects
+	 
+	Namespace - 
+		A Logical entity that serves as a top level container for all bucket and objects
+		Each tenancy is provided one uniqe namespace that is global, spanning all compartment and region
+		Bucket name should be unique within tenancy
+		Within a namespace bucket and object exist in flat hierarcy,but you can simulate directory structure using prefixes and hierarchies
+	
+     Object Naming - 
+	Service prepend the object storage namespace string and bucket name and object name
+		/n/<namespace>/b/<bucket_name>/o/<object_name>
+	Flat Hierarcy -
+	You can use CLI to perform bulk download and bulk delete of all object at specific level without affecting objects in level above or below
+	 		
+     Object Tiers - 
+	Standard Storage Tiers (Hot) - 
+		Fast immediate frequest access
+		Strong consistence- always serves the most recent copy of data	
+		Standard bucket cannot be downgrade to Archive bucket
+
+	Archive Storage Tiers (Cold) - 
+		Seldom or rarely access data but must be retained  for long period
+		Minimum retention period 90 days
+		Object must be restored before download
+		Time to First bytes - 4 hrs
+		Archive bucket cannot be upgraded to Standard bucket
+
+  Object Storage Demo : 
+	Default behaviour of bucket is PRIVATE (But can be changed to PUBLIC)
+
+  Object Storage Capabilities : 
+     Managing Access & Authentication - 
+	Pre Authenticated URL - 
+		Prefix  p/ < Pre authenitcated 
+		        n/ Namespace
+			b/ Bucket
+			o/ Object
+     Public Bucket - 
+	Changing type of access doesnt affect existing pre-auth requests	
+
+     Cross Region Copy - 
+	Copy objects to other buckets in the same region and to buckets in other regions
+	Must authorize the service to manage objects on your behalf (Seperate policy for each region )
+	Policy : allow serivce objectstorage-us-ashburn-1 to manage object-family in tenancy
+	Must specify a target bucket
+	Bulk copying is not supported
+	Objects cannot be copied from archive storage
+
+     Multipart Upload - 
+	Create object part - 
+		object larger than 100MB
+		Individual part can be as big as 50 GB or as small as 10MB
+		Assign part from 1 to 10,000
+	Initiate an upload -		
+		Initiate and upload by calling api CreateMultiPartUpload 
+	Upload object parts -
+		Make an uploadpart request for each object part upload
+		You can restart failed upload part. No need to restart all upload
+	Commit Upload-
+		 
+
+
+     Object LifeCycle Management- 
+	Define lifecycle rules to automatically archive or delete objects after a specified number of days
+	Must authorize service to manage objects on your behalf
+	Policy :  allow service objectstorage-us-ashburn1  to mange object-family in tenancy 
+	Applied at the bucket or objet name prefix level, If no prefix is specified the rule will apply to all objects in bucketx`x` 
+	Delete rule take priority over archive rule over same object
+	You can enable or disable rule.
+	
+
+
+
+Databases : - 
+(Key benefit of database on OCI)
+(Two characterstic need to cosider while migrating db to OCI)
+----------------------------------------------------------------------------------------------------------------
+     OCI Database Service - 
+	BM VM Exadata RAC
+	Complete life cycle automation - Provisioning, Patching, Backup&Restore
+	High Availability & Scalabilty - RAC & DataGuard , Dynamic CPU and Storage Scaling 
+	Security - Infrastructure - IAM, Security List, Audit Log
+		   Database -	    TDE, Encrypted RMAN Backup , Block Volume Encrypted
+	OCI Platform Integration - Tagging, Limit and Usage integration
+	Bring your own license
+
+  Virtual Machine (VM) Database (DB) System :
+	There are 2 type of DB System in VM
+		1 Node consist of One VM
+		2 Node Consist of 2  node with RAC enabled
+	VM DB System can have only one Oracle Home and in turn only one DB
+	Storage can be scaled up any time
+	Number of CPU core on existing VM DB cannot be changed
+	Dataguard within and across AD is available for VM DB System (Require Enterprise DB)
+	If you are launching DB System with VM shape, You have option of selecting an older database version 
+
+     VM DB System Storage Architecture -
+	ASM relies on Block Storage  (DATA RECO - Diskgroup)
+	Block volume are mounted using ISCSI
+	ASM uses external redundancy relying on the triple mirroring of the block storage
+	This storage architecture is required for VM RAC DB System 
+
+     VM DB System Storage Architecture - Fast Provisioning Option
+	Linux Logical Vol manager manages file system
+	Block volume are mounted using ISCSI
+	VM RAC DB System cannot be deploy using this option
+	Currently support Oracle DB 18C & 19C
+
+  Bare Metal (BM) Database (DB) System :	
+	BM DB System rely on BM Server running Oracle Linux
+	One Node DB System 
+		Single Bare Metal Server 
+		Locally Attached NVMe Storage 51 TB (raw)
+		Start with 2  core and scale up/down. for X7 You have 56 OCPU and  768 GB RAM  
+		Data Guard within and across DB, RAC not supported
+		If single node fails launch another system and restore database with current backups
+		
+      BM DB System Storage Architecture -
+	ASM manages mirroring of NVMe Disks
+	ASM monitor disk for hard of soft failure
+	Proactively offline disk that failed , predict of fail or performing poor 
+	On disk failure DB System automatically raise SR
+	
+  Exadata (BM) Database (DB) System :
+	Full Oracle DAtabase with all advance option
+	Scale out compute , Scale out storage infiniband PCIe Flash
+	All benefit of clouds - Fast Elastic Web driven provisioning 
+	Oracle manage Exadata infrasturcture -Server Storage Networking firmware hypervisior		
+	Scaling from 1/4 to a 1/2 RAC or from 1/2 to Full RAC requires data assoicated with DB backed up and restore on a different Exadata DB system 
+
+      Exadata DB System Storage Architecture -
+	Backup provision - 40 % - Data
+			   60 % - RECO
+	No Backup provision - 80 % - Data
+			      20 % - RECO
+
+	After the storage is configured the only way to recofigure storage without reconfiguration is by submitting SR
+	
+  Database Edition and Option :
+	Standard Edition - Full DB instance , TDE
+	Enterprise Edition - All + Diagnostics & Tunning, Data Masking & Subsetting, Real App Testing
+	EE High Performance - All + Multitenant , Partition, Advance compression,Advance Security, OLAP & Analytics, Management Pack
+	EE Extreme Performance - All + RAC, Dataguard + InMemory (Exadata support only EE Extreme Performance) 
+	
+  Managing DB System - 
+	Launch a DB System
+	Start , Stop Reboot, Status Check
+	Scale CPU Core
+	Scale Up Storage
+	Terminate 
+
+DB Life Cycle - 
+  Patching DB System :
+	For RAC and Exadata patch is rolling , For single instance DR can be leveraged by patch service
+	DB system need to be patch before database is patched
+	Identity and Access Management -  Granular Permission - It is possible to control who can list and apply patch
+		
+
+  Backup / Restore :
+	Managed Backup and Restore feature for VM/BM DB System. Exadata backup process require to creating backup config file
+	Backup stored in Object storage (using Service Gateway) or Local Storage 
+	DB Backup Option - 
+		Automatic Incremental - runs once/day, Repeat the cycle every week , retained for 30 days
+		On-Demand - standalone / Full backup
+	Restore Option -
+		Restore to latest
+		Restore to the timestamp
+		Restore to SCN
+
+  Automatic Backup :
+	By default automatic backup are stored in Orcle owned object storage and customer cannot view it.
+	Default policy cannot be changed at this time
+	There are preset retention period for automatic backup 7 15 30 45 60 days
+	Backup jobs are designed for automatic re-tried
+	ORacle automatically get notifies if a backup job is stuck
+	All backups to object storage is encrypted
+	
+  High Availability & Scalability :
+	Robust infrastructure - 
+		Region with 3 AD
+		Fully redundant and non blocking networking fabric
+		2-way 3-way mirrored storage for database
+		Redundant infiniband fabric (EXadata) for cluster networking
+	DAtabase option to enable HA -
+		Database RAC option in VM and Exadata
+		Automated DG within and across AD
+	Dynamic CPU (Bare Metal) and Storage scaling (VM only)	
+		
+
+  Oracle Databguard :
+	Supported on both VM & BM 
+	One standby per pirmary db
+
+  OCI Security Feature Overview for Database Service :
+	Instance security isolation - BM DB System
+	Network Security & Access Control - VCN, Security List, VCN Public Private subnet, Route Table, Service Gateway
+	Secure & Highly Available Conectivity - VPN DRG, VPN & FastConnect
+	User AuthN & AuthZ - IAM Tenancy, Compartment and Security Policies, Console Password , API Signing Keys, SSH Keys
+	Data Encryption - TDE , RMan encrypted backup, Logical and Object Storage Encryption at rest
+	End-To-End TLS - LBaaS with TLS 1.2, Customer provided certificate
+	Auditing - OCI API Audit Logs (via API or Console)
+	
+
+
+Oracle Autonomous Databases : - 
+(which tow option is avialable in service console )
+----------------------------------------------------------------------------------------------------------------
+  Oracle Cloud : 
+	Autonomous Database - 
+		All database operation fully automated
+		User run sql no db or container access
+		Exadata performance and availability
+		Customized for DW or TP workload	
+			Serverless  - Ulta simple & Elastic (Shared resource on Exadata Cloud Infrastructure)
+			Dedicated   - Customizable private cloud (Dedicated)
+		
+	Automated DB Service - 
+		Database lifecycle automation provided 
+		User operates has DBA and OS root access
+		Run older database version
+			ExaCS - SCale, Performance availability  
+			DBCS - VM orBM Sigle server or RAC		 
+
+
+  Use Case : 
+	Autonomous Database - 
+		World best full self driving DB. ORacle Builds and Operates Exadata infra. and database
+		User run sql no access to OS or DB Container
+	Use Case-  
+		Cloud Elasticity, ML,Self driving ,Instance provisioning , All workload JSON Document & Graphs  
+			
+	Oracle Database Cloud Service -
+		World best automated Database Cloud, ORacle build and operate infrastructure
+		User operate DB using provided lifecyle automation User has full control over OS and DB
+	Use Case - 
+		Flexible Version and Feature, Small to Large DB deployment , Single Instance RAC, Automated Backup and Patching  		
+
+	Exadata -
+		World best database platform Oracle build, Optimze and automates infrastructure
+		All in-database automation feature included, Customer is responsible for provisioniong DB & managing DB
+	Use Case - 
+		Public/Private Cloud on premise, highest performance scalbility for mission critical workload		
+
+
+	Oracle Database -
+
+  Oracle ADB database can be deployed in 2 ways - Dedicated & Serverless
+
+  Oracle Autonomous Serverless (ADW & ATP) :
+	Oracle Automates end - to - end management of the autonomous database
+	Provisioning of new DB, Growing / Shrinking of storage, Patching,Backup & Recovery
+	Full lifecycle managed using the service console
+	Alternatively can be managed from CLI and REST API
+	
+  Automated  Tuning in ADB :
+	Define table > Load Data > Run Queries
+	No Tunning required	
+	No need of worry about > Tablespace, Partitioning, Indexs, Compression , InMemory, Parallel execution 
+	Simple web based monitoring
+	Built in resoure management plan
+	Independently scale of compute and storage resize is fully online and instance
+	No constrainted by fixed building block no predefine shape
+	Shut off idle compute to save money- restart instantly 
+	Autoscaling - Eable autoscaling to allow ADB to use more CPU & IO resource automatically based on workload
+
+  Full  Support echosystem:
+	Existing tools running on prim or in cloud
+		Third party BI Tool
+		Third party integration tool
+		ORalce BI and data integration tool , BIEE, ODI
+	Oracle Cloud Service - Analytics Cloud Servie, OGG Cloud Service, Integration Cloud Service and others
+	Connectivity via sqlnet jdbc odbc
+
+ 
+  Autonomous Data Warehouse Architecture:
+	Built in Query & Appliction Tool -
+		Web SQL Developer
+		Machine learning
+		Appliction Express
+		Rest Data Service (RDS)
+	BI -
+		Oracle analytics Cloud
+		ORacle Data Vistuliation desktop	
+		3rd party BI tool on OCI and on prim
+	Data Integration Service - 
+		Oracle DI Service
+		3rd party DI on OCI & on prim
+	Developer Tool - 
+		SQL DEveloper
+	Service management - 
+		Service Console
+
+	Oracle Object Store -
+
+
+  Autonomous Transactional Process Architecture:
+	All services common in ADW with addional 
+	Developer Service - 		
+		Oracle Java Cloud Service
+		Developer Cloud SErvice
+		Container Cluster (OKE)
+		Registry
+
+
+  Getting started with ADB:
+ 	Provisioning ADB require to answer 7 question
+		DB Name
+		Region Name
+		OCPU
+		Storage
+		Admin Password
+		License Type
+		Enable Autoscaling (Upto 3  time of assigned CPU- You can enable to disable autoscale at anytime)
+
+    Securing ADB :
+	Store all data in encrypted format. Only authenticated user and application can access data.
+	Database client uses SSL/TLS 1.2 and mutual authenticated connetion
+	Certificate based authenication uses encryption key stored in walled on both client adn service side.
+	You can speify specific ip range to access ADB using access control file
+	
+    TroubleShooting Connectivity Issue :
+	Ensure Access Control List for ADB has necessary entries of CIDR block range of IPs
+	When connecting from client behind firewall make sure your firewall must allow access to server within .oraclecloud.com using TCP port 1522
+	When conection from client running in private subnet make sure service gateway or NAT Gateway attach to VCN , Route Table has correct entry rule 
+	for Service gateway or NAT Gateway, Security List need to have proper egress rule
+	When conection from client running in public subnet ensure internet gateway attach to VCN and route table and SL are configured correctly
+
+    Scaling your Database:
+	Independently scale CPU and Storage
+	Memeory IO Bandwidth, Concurrency scale linear with CPU
+	Resizing occur online 
+	Close your database when not used to save money - REstart instantly		
+
+    Monitoring:
+	Service Console based Monitoring -
+		Historical and Real time database CPU Utilization monitoring
+		Real Time SQL monitoring to monitor running and past sql
+		CPU allocation chart per service
+	 Overview - 
+		Storage Used
+		CPU Utilization
+		Running SQL Statement
+		Number of OCPU allocated
+		SQL Statement response time
+	Activity - 
+		DAtabase Activity
+		CPU Utilization
+		Running Statement
+		Queued Statement
+
+	Administration -
+		Download Wallet
+		Set resource management rules
+		Set admin password
+		Manage ML Users
+		Send feedback to Oracle 		
+
+	Development - 
+		Web SQL Developer
+		Oracle APEX
+		RDS (Restful Data Service)
+		ORacle ML SQL Notebook
+		Download Oracle Instance Client
+
+
+	 Performance Hub Based Monitoring -
+		Active Session History Analytics
+		REal time SQL Monitoring 
+
+    ADB Backup & Recovery:
+	Automatically backup retention period - 60 , Weekly full backup , Daily incremental
+	Network Control List are stored in DB .
+	
+    ADB Clone:
+	Cloning Option
+		Full - Data + Metadata - loading in table with statisics already placed
+		Metadata - Only metadata - clear statistics and load update statistics with new load
+	You can clone ADB to the same tenancy and same region as source db 
+
+    ADW-Predefine Service:							CPUshare 	Max idle time	No.Concurrent Queries
+	High -	   Highest Resource  	lowest Concurrency 	parallel	4		5 min		3
+	MEdium	-  Less Resource  	higher concurrency	Parallel	2		5 min		20
+	Low -      Least Resource    	highest Concurrency	Serial		1		1hrs		32  (for OGG recommanded)
+
+	
+    			ATP-Predefine Service:	Resource MGT PLAN	Parallelism
+(reporting, batch)	High 				4		in Parallel and subjet to queue
+(reporting, batch)	Medium				2		in Parallel and subjet to queue	
+(reporting, batch)	Low				1		None
+(transaction)		TP				8		None
+(transaction)		TPUrgent			12		Manual
+
+
+
+  Autonomous Database Dedicated :
+	Autonomous Dedicated provide database cloud on dedicated exadata infrastructure in public cloud
+	multiple isolation protetion from noisy neighbour
+	Customizable operational policy give you control over provisioning, software update , availability and density  	
+
+  Autonomous Transaction Processing - Dedicated :
+	Create VCN > Provision autonomous EXadata infrasturcture > Crate autonomous container database > Create autonomous database
+
+  Autonomous Transaction Processing - Dedicated - Security:
+ 	Database always encrypted
+	reduced attach surface
+	DAtabase Vault new operation control feature
+	ORacle automatically apply security patches for entire stacks - Quaterly or off cycle high impact security
+	Customer can use seperately Database Vault for their own user data isolation
+
+
